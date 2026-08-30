@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.1.0
+// @version      0.2.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -15,7 +15,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.1.0';
+  const VER = '0.2.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -23,61 +23,75 @@
   const FONT = 'Nunito, system-ui, -apple-system, "Segoe UI", sans-serif';
 
   /* ==================== СПРАВОЧНИК ==================== */
-  // Кластеры: продакт + лид контента + ключевые слова курса для автоопределения.
+  // Кластеры: продакт + лид контента + ключевые слова курса для автоподсказки.
+  // Автоподсказка — не обязательна: в панели всегда можно выбрать кластер вручную.
   const CLUSTERS = {
     'Менеджмент': {
       product: { name: 'Александр Зырянов', tag: '@alexanderzyryanov' },
       lead: { name: 'Наталья Сухаг', tag: '@nataliya_suhag' },
-      kw: ['коммерческ', 'генеральн', 'исполнительн', 'ceo', 'роп', 'управление командами', 'директор по продаж',
-           'менеджер отдела продаж', 'soft skills', 'софт скилл', 'управление продажами', 'тайм-менеджмент',
-           'бизнес-консультант', 'директор по закупкам', 'клиентск', 'категорийн', 'антикризис',
-           'управление малым бизнесом', 'госзакупок', 'управление закупками', 'для отдела продаж',
-           'управление медицинской']
+      kw: ['коммерческ', 'генеральн', 'исполнительн', ' ceo', 'роп ', 'управление командами', 'управление командой',
+           'директор по продаж', 'менеджер отдела продаж', 'менеджер по продаж', 'отдел продаж', 'soft skills',
+           'софт скилл', 'софт-скилл', 'управление продажами', 'тайм-менеджмент', 'тайм менеджмент',
+           'бизнес-консультант', 'бизнес консультант', 'директор по закупкам', 'клиентск', 'категорийн',
+           'антикризис', 'малым бизнесом', 'госзакуп', 'управление закупками', 'для отдела продаж', 'руководител',
+           'лидер', 'управление медицинск', 'менеджмент', 'управление персоналом организации', 'операционн управлени']
     },
     'Финансы': {
       product: { name: 'Зоя Гавриленко', tag: '@zoya_vlady' },
       lead: { name: 'Денис Соболев', tag: '@densoboldr' },
-      kw: ['финансов', 'управление финансами', 'операционный директор', 'экономик', 'управление предприятием',
-           'операционное управление', 'финансовое моделир', 'стратегическому развитию', 'нефинансист',
-           'по строительству', 'по производству', 'инвестицион', 'emba']
+      kw: ['финанс', 'финдир', 'управление финансами', 'операционный директор', 'экономик', 'управление предприятием',
+           'операционное управление', 'финансовое моделир', 'фин модел', 'стратегическому развитию',
+           'стратегическое управление', 'нефинансист', 'по строительству', 'по производству', 'инвестицион',
+           'emba', 'мсфо', 'бюджетир', 'казначей', 'управленческий учёт', 'управленческий учет']
     },
     'Бухгалтерия': {
       product: { name: 'Джу', tag: '@hey_juliko' },
       lead: { name: 'Алан Гадзаонов', tag: '@alangadzaonov' },
-      kw: ['бухгалтер', '1с', 'бухучёт', 'бухучет', 'excel', 'ms office', 'мастер презентаций',
-           'право для бизнеса', 'внутренний аудитор', 'аудит']
+      kw: ['бухгалтер', 'бухучёт', 'бухучет', 'бухгалтерск', ' 1с', '1с:', 'зарплата и кадры', 'основы учёта',
+           'основы учета', 'excel', 'эксель', 'google-таблиц', 'гугл-таблиц', 'ms office', 'мастер презентаций',
+           'право для бизнеса', 'внутренний аудитор', 'аудит', 'налог', 'ндс', 'усн', 'первичк',
+           'кадровое делопроизводств']
     },
     'Маркетинг и дизайн': {
       product: { name: 'Александр Шамша', tag: '@Ashamsha' },
       lead: { name: 'Анастасия Злобина', tag: '@zlobina_nastya' },
-      kw: ['маркетолог', 'маркетинг', 'smm', 'смм', 'копирайтер', 'веб-дизайн', 'графическ', 'дизайнер',
-           'трафик', 'интерьер', '3ds max', '3д макс', 'revit', 'autodesk']
+      kw: ['маркетолог', 'маркетинг', 'smm', 'смм', 'копирайт', 'веб-дизайн', 'веб дизайн', 'графическ дизайн',
+           'дизайнер', 'дизайн интерьер', 'трафик', 'таргет', 'контекстн реклам', 'seo', 'сео', 'реклам',
+           'бренд', 'пиар', ' pr ', 'контент-маркет', 'интерьер', '3ds max', '3д макс', '3d max', 'revit',
+           'autodesk', 'фотошоп', 'photoshop', 'figma', 'фигма']
     },
     'IT и Аналитика': {
       product: { name: 'Дмитрий Пронин', tag: '@Dmitriy_PR0' },
       lead: { name: 'Екатерина Гудовская', tag: '@egudovskaia' },
-      kw: ['аналитик', 'data science', 'дата сайнс', 'power bi', 'sql', 'bi', 'python', 'питон', 'frontend',
-           'фронтенд', 'веб-разработчик', 'тестировщик', 'тестирован', 'it-директор', 'it-специалист',
-           'разработчик']
+      kw: ['аналитик', 'data science', 'дата сайнс', 'датасайнс', 'power bi', 'sql', ' bi ', ' bi:', 'python',
+           'питон', 'frontend', 'фронтенд', 'бэкенд', 'backend', 'fullstack', 'фулстек', 'веб-разработчик',
+           'веб разработчик', 'разработчик', 'разработк', 'программир', 'программист', 'кодинг', 'coding',
+           'vibe coding', 'вайб', 'тестировщик', 'тестирован', 'qa', 'it-директор', 'it директор', 'it-специалист',
+           'айти', 'devops', 'девопс', 'кибербез', 'информационн безопасн', 'базы данных', ' java', 'javascript',
+           'c++', 'nocode', 'ноукод', 'low-code', 'машинн обучени', 'ml ', 'нейросет']
     },
     'МПП (маркетплейсы, проекты, продакт)': {
       product: { name: 'Михаил Свирин', tag: '@mikhail_svirin' },
       lead: { name: 'Анна Серебрякова', tag: '@serebryaka' },
-      kw: ['менеджер проектов', 'маркетплейс', 'продакт', 'управление проектами', 'project manager',
-           'проджект', 'по логистике', 'цифровое предприним', 'cpo', 'проектного офиса',
-           'управление логистикой', 'цепями поставок', 'инженер пто', 'autocad', 'в строительстве']
+      kw: ['менеджер проект', 'маркетплейс', 'продакт', 'продукт-менеджер', 'продуктовый', 'управление проект',
+           'проектами', 'project manager', 'проджект', 'по логистике', 'логист', 'склад', 'wildberries',
+           'вайлдберриз', ' wb ', 'ozon', 'озон', 'поставк', 'цифровое предприним', 'cpo', 'проектного офиса',
+           'управление логистикой', 'цепями поставок', 'цепочк поставок', 'инженер пто', 'птo', 'autocad',
+           'автокад', 'в строительстве', 'управление строит', 'девелопмент']
     },
     'HR и психология': {
       product: { name: 'Анна Фирсова', tag: '@yatriks' },
       lead: { name: 'Алиса Арцыман', tag: '@alicearts' },
-      kw: ['психолог', 'hr', 'эйчар', 'управлению персоналом', 'методист', 'образовательных программ',
-           'продюсер онлайн', 'онлайн-репетитор', 'развитие персонала', 'кадровое делопроизводство',
-           'бизнес-ассистент', 't&d', 'mini-mba']
+      kw: ['психолог', 'психотерап', ' hr', 'hr-', 'hr:', 'эйчар', 'управлению персоналом', 'управление персоналом',
+           'подбор персонала', 'рекрут', 'рекрутер', 'адаптац персонал', 'обучение и развитие', 't&d', 'методист',
+           'методолог', 'образовательн программ', 'продюсер онлайн', 'продюсер курс', 'онлайн-репетитор',
+           'репетитор', 'развитие персонала', 'кадровое делопроизводств', 'бизнес-ассистент', 'ассистент руковод',
+           'mini-mba', 'мини-mba', 'коуч', 'наставник']
     },
     'Отраслевое управление': {
       product: { name: 'Алиса Затона', tag: '@alisa_zatona' },
       lead: null,
-      kw: ['отраслев']
+      kw: ['отраслев', 'госсектор', 'государственн управлени', 'медицинск организац', 'управление в образован']
     },
     'Ресейл': {
       product: { name: 'Дмитрий Пронин', tag: '@Dmitriy_PR0' },
@@ -88,9 +102,10 @@
     'Детские курсы': {
       product: { name: 'Даниил Терентев', tag: '@dd_terentev' },
       lead: null,
-      kw: ['детск', 'для детей', 'школьник', 'подростк']
+      kw: ['детск', 'для детей', 'школьник', 'подростк', 'для ребёнк', 'для ребенк']
     }
   };
+  const CLUSTER_NAMES = Object.keys(CLUSTERS);
 
   // Команды продаж: руководитель → тег + список МОП
   const TEAMS = {
@@ -139,18 +154,24 @@
     { name: 'Алексей Семериков', tag: '@Semerikov_Aleksey', note: 'директор департамента Маркетинг, IT и Аналитика' }
   ];
 
-  // Пинги. {тег} {ссылка} {ссылка_амо} {цитата} {имя} {email} {телефон} — подставляются.
+  // Пинги. suggest — кого предлагать в выборе тега:
+  //   'leads'  — продакт + лид контента кластера (кластер выбирается/меняется в панели)
+  //   'dz'     — проверяющие ДЗ (по умолчанию — Мария Старцева)
+  //   'teams'  — руководители команд продаж (11)
+  //   'none'   — тег не нужен
+  // linkKind — какую ссылку подставить по кнопке «взять из карточки»: 'amo' или '' (Notion — вписывает куратор).
+  // {тег} {ссылка} {цитата} {имя} {email} {телефон} — подставляются.
   const PINGS = [
-    { id: 'question', title: 'Завис вопрос', tagHint: 'product',
-      text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\nОбращение: {ссылка}' },
-    { id: 'dz', title: 'Зависла проверка ДЗ', tagHint: 'dz',
-      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\nОбращение: {ссылка}' },
-    { id: 'sending', title: 'Задержка отправки', tagHint: 'team',
-      text: 'Привет, {тег}! Подвисла отправка, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\nОбращение: {ссылка}' },
-    { id: 'payment', title: 'Вопрос по оплате / подарочному', tagHint: 'team',
-      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному сертификату — свяжись с ним, пожалуйста.\nСделка в амо: {ссылка_амо}' },
-    { id: 'lead', title: 'Новый лид', tagHint: 'none',
-      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\nСделка в амо: {ссылка_амо}' }
+    { id: 'question', title: 'Завис вопрос', suggest: 'leads', linkKind: '',
+      text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\nВопрос: {ссылка}' },
+    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: '',
+      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\nДЗ: {ссылка}' },
+    { id: 'sending', title: 'Задержка отправки', suggest: 'leads', linkKind: '',
+      text: 'Привет, {тег}! Подвисла отправка, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\nОтправка: {ссылка}' },
+    { id: 'payment', title: 'Вопрос по оплате / подарочному', suggest: 'teams', linkKind: 'amo',
+      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному сертификату — свяжись с ним, пожалуйста.\nСделка: {ссылка}' },
+    { id: 'lead', title: 'Новый лид', suggest: 'none', linkKind: 'amo',
+      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\nСделка: {ссылка}' }
   ];
 
   /* ==================== ЧТЕНИЕ КОНТЕКСТА ==================== */
@@ -200,7 +221,11 @@
   function amoLink() {
     const a = Array.from(document.querySelectorAll('a[href*="amocrm.ru"], a[href*="/leads/detail/"]'))
       .find(function (x) { return /amocrm\.ru|leads\/detail/.test(x.href); });
-    return a ? a.href : '';
+    if (a) return a.href;
+    // номер сделки из сайдбара («AMOCRM (ИЗ ЗАДАЧ ПО ЗАКРЫТЫМ СДЕЛКАМ)»)
+    const num = sidebarValue(/amocrm/i);
+    const m = (num || '').match(/\d{5,}/);
+    return m ? ('https://eduson.amocrm.ru/leads/detail/' + m[0]) : '';
   }
 
   function detectCluster(course) {
@@ -216,24 +241,37 @@
   }
 
   /* ==================== ПОДСТАНОВКА В ПИНГ ==================== */
-  function buildPing(ping) {
-    const course = readCourse();
-    const cluster = detectCluster(course);
-    let tag = '{тег}';
-    if (ping.tagHint === 'product' && cluster) tag = CLUSTERS[cluster].product.tag;
-    else if (ping.tagHint === 'dz') tag = DZ_DEFAULT.tag;
+  // Кого предложить в выборе тега для пинга и кластера.
+  function suggestTags(ping, cluster) {
+    if (ping.suggest === 'dz') {
+      return [{ label: DZ_DEFAULT.name + ' — по умолчанию', tag: DZ_DEFAULT.tag }]
+        .concat(DZ_REVIEWERS.map(function (d) { return { label: d.name, tag: d.tag }; }));
+    }
+    if (ping.suggest === 'teams') {
+      return Object.keys(TEAMS).map(function (lead) {
+        return { label: lead + (TEAMS[lead].dept ? ' · ' + TEAMS[lead].dept : ''), tag: TEAMS[lead].tag };
+      });
+    }
+    if (ping.suggest === 'leads') {
+      if (!cluster || !CLUSTERS[cluster]) return [];
+      const c = CLUSTERS[cluster];
+      const r = [{ label: 'Продакт · ' + c.product.name, tag: c.product.tag }];
+      if (c.lead) r.push({ label: 'Лид контента · ' + c.lead.name, tag: c.lead.tag });
+      return r;
+    }
+    return [];
+  }
 
+  function pingFill(ping, tag, link) {
     const u = readUser();
     const quote = ping.id === 'lead' ? (firstClientMsg() || lastClientMsg()) : lastClientMsg();
-    const out = ping.text
-      .replace('{тег}', tag)
-      .replace('{ссылка}', caseUrl())
-      .replace('{ссылка_амо}', amoLink() || '{ссылка на сделку в амо}')
+    return ping.text
+      .replace('{тег}', tag || '{тег}')
+      .replace('{ссылка}', link || '{вставь ссылку}')
       .replace('{цитата}', quote || '{цитата из сообщения}')
       .replace('{имя}', u.name || '{имя}')
       .replace('{email}', u.email || '{email}')
       .replace('{телефон}', u.phone || '{телефон}');
-    return { text: out, cluster: cluster, needTag: out.indexOf('{тег}') !== -1 };
   }
 
   /* ==================== UI ==================== */
@@ -310,15 +348,9 @@
   }
 
   function renderPings(body) {
-    const course = readCourse();
-    const cluster = detectCluster(course);
-    const ctx = elt('div', 'font-size:11px;color:#6B7280;font-weight:700;margin-bottom:8px;',
-      cluster ? ('Кластер по курсу: ' + cluster) : (course ? 'Курс: ' + course + ' — кластер не распознан' : 'Курс в карточке не найден'));
-    body.appendChild(ctx);
-
     PINGS.forEach(function (ping) {
-      const row = elt('div', 'border:1px solid #E5E7EB;border-radius:12px;padding:8px 10px;margin-bottom:7px;cursor:pointer;');
-      row.appendChild(elt('div', 'font-weight:800;font-size:12.5px;', ping.title));
+      const row = elt('div', 'border:1px solid #E5E7EB;border-radius:12px;padding:9px 11px;margin-bottom:7px;cursor:pointer;font-weight:800;font-size:12.5px;');
+      row.textContent = ping.title;
       row.onclick = function () { showPingResult(body, ping); };
       row.onmouseenter = function () { row.style.borderColor = ACC_BD; row.style.background = '#F0F9FF'; };
       row.onmouseleave = function () { row.style.borderColor = '#E5E7EB'; row.style.background = '#fff'; };
@@ -326,89 +358,192 @@
     });
   }
 
+  const fieldLabel = 'font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#9CA3AF;margin:10px 0 3px;';
+  const inputCss = 'width:100%;padding:7px 10px;border:1px solid #D1D5DB;border-radius:9px;font:600 12.5px ' + FONT + ';color:#111827;background:#fff;';
+
   function showPingResult(body, ping) {
     body.innerHTML = '';
-    const back = elt('div', 'font-size:11px;font-weight:800;color:' + ACC + ';cursor:pointer;margin-bottom:8px;', '‹ назад к пингам');
+    const back = elt('div', 'font-size:11px;font-weight:800;color:' + ACC + ';cursor:pointer;margin-bottom:6px;', '‹ назад к пингам');
     back.onclick = function () { body.innerHTML = ''; renderPings(body); };
     body.appendChild(back);
+    body.appendChild(elt('div', 'font-weight:800;font-size:13px;margin-bottom:2px;', ping.title));
 
-    const r = buildPing(ping);
-    body.appendChild(elt('div', 'font-weight:800;font-size:12.5px;margin-bottom:6px;', ping.title));
+    let cluster = ping.suggest === 'leads' ? detectCluster(readCourse()) : null;
+    let manualTag = '';
 
+    // --- Кластер (только для 'leads') ---
+    let clusterSel = null;
+    if (ping.suggest === 'leads') {
+      body.appendChild(elt('div', fieldLabel, 'Кластер' + (cluster ? '' : ' — курс не распознан, выбери')));
+      clusterSel = elt('select', inputCss);
+      clusterSel.appendChild(new Option('— выбери кластер —', ''));
+      CLUSTER_NAMES.forEach(function (n) { clusterSel.appendChild(new Option(n, n)); });
+      clusterSel.value = cluster || '';
+      const crs = readCourse();
+      if (crs) body.appendChild(elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:1px;', 'курс: ' + crs));
+      body.appendChild(clusterSel);
+    }
+
+    // --- Кому (выбор тега) ---
+    let tagSel = null, manualInput = null;
+    if (ping.suggest !== 'none') {
+      body.appendChild(elt('div', fieldLabel, 'Кому'));
+      tagSel = elt('select', inputCss);
+      manualInput = elt('input', inputCss + 'margin-top:5px;display:none;');
+      manualInput.placeholder = '@тег вручную';
+      body.appendChild(tagSel);
+      body.appendChild(manualInput);
+    }
+
+    // --- Ссылка ---
+    body.appendChild(elt('div', fieldLabel, ping.linkKind === 'amo' ? 'Ссылка на сделку' : 'Ссылка на карточку Notion'));
+    const linkInput = elt('input', inputCss);
+    linkInput.placeholder = ping.linkKind === 'amo' ? 'https://eduson.amocrm.ru/leads/detail/…' : 'ссылка на карточку Notion';
+    if (ping.linkKind === 'amo') linkInput.value = amoLink() || '';
+    body.appendChild(linkInput);
+
+    // --- Превью ---
+    body.appendChild(elt('div', fieldLabel, 'Текст пинга'));
     const ta = elt('textarea', 'width:100%;min-height:150px;border:1px solid #D1D5DB;border-radius:10px;padding:8px 10px;font:500 12px/1.5 ' + FONT + ';color:#111827;resize:vertical;');
-    ta.value = r.text;
     body.appendChild(ta);
 
-    if (r.needTag) {
-      const hint = elt('div', 'font-size:11px;color:#B45309;font-weight:700;margin-top:6px;',
-        ping.tagHint === 'team' ? 'Впиши тег руководителя команды МОП вместо {тег} (см. вкладку «Теги»).'
-          : 'Впиши нужный тег вместо {тег}.');
-      body.appendChild(hint);
+    function chosenTag() {
+      if (!tagSel) return '';
+      if (tagSel.value === '__manual__') return manualInput.value.trim();
+      return tagSel.value;
     }
+    function recompute() { ta.value = pingFill(ping, chosenTag(), linkInput.value.trim()); }
+    function fillTagSel() {
+      if (!tagSel) return;
+      tagSel.innerHTML = '';
+      const opts = suggestTags(ping, clusterSel ? clusterSel.value : null);
+      if (!opts.length) tagSel.appendChild(new Option(ping.suggest === 'leads' ? '— сначала выбери кластер —' : '—', ''));
+      opts.forEach(function (o) { tagSel.appendChild(new Option(o.label + '  ·  ' + o.tag, o.tag)); });
+      tagSel.appendChild(new Option('— вписать тег вручную —', '__manual__'));
+      tagSel.value = opts.length ? opts[0].tag : '';
+      manualInput.style.display = 'none';
+    }
+    fillTagSel();
+    recompute();
 
-    const btns = elt('div', 'display:flex;gap:7px;margin-top:9px;');
-    const copyB = elt('div', 'flex:1;text-align:center;background:' + ACC + ';color:#fff;font-weight:800;font-size:12px;padding:8px 0;border-radius:12px;cursor:pointer;', '📋 Копировать');
+    if (clusterSel) clusterSel.onchange = function () { fillTagSel(); recompute(); };
+    if (tagSel) tagSel.onchange = function () {
+      manualInput.style.display = tagSel.value === '__manual__' ? 'block' : 'none';
+      recompute();
+    };
+    if (manualInput) manualInput.oninput = recompute;
+    linkInput.oninput = recompute;
+
+    const copyB = elt('div', 'margin-top:9px;text-align:center;background:' + ACC + ';color:#fff;font-weight:800;font-size:12px;padding:9px 0;border-radius:12px;cursor:pointer;', '📋 Копировать');
     copyB.onclick = function () { copyText(ta.value); toast('Скопировано — вставь в нужный чат Телеграм'); };
-    btns.appendChild(copyB);
-    body.appendChild(btns);
+    body.appendChild(copyB);
   }
 
-  function buildTagIndex() {
-    const idx = [];
-    for (const name in CLUSTERS) {
+  // Вкладка «Теги» — отдельные разделы, внутри «Команд продаж» — подразделы по руководителям.
+  function buildTagSections() {
+    const prod = [], leads = [];
+    CLUSTER_NAMES.forEach(function (name) {
       const c = CLUSTERS[name];
       const kw = (c.kw || []).join(' ');
-      idx.push({ cat: 'Продакт', name: name + ' — ' + c.product.name, tag: c.product.tag, note: c.note || '', kw: kw });
-      if (c.lead) idx.push({ cat: 'Лид контента', name: name + ' — ' + c.lead.name, tag: c.lead.tag, note: '', kw: kw });
-    }
-    for (const lead in TEAMS) {
+      prod.push({ name: name + ' — ' + c.product.name, tag: c.product.tag, note: c.note || '', kw: kw });
+      if (c.lead) leads.push({ name: name + ' — ' + c.lead.name, tag: c.lead.tag, note: '', kw: kw });
+    });
+    const teams = Object.keys(TEAMS).map(function (lead) {
       const t = TEAMS[lead];
-      idx.push({ cat: 'Команда продаж', name: lead + ' (руководитель)', tag: t.tag, note: t.dept });
-      t.mops.forEach(function (m) {
-        idx.push({ cat: 'Команда продаж', name: m, tag: t.tag, note: 'команда: ' + lead });
-      });
-    }
-    idx.push({ cat: 'Проверяющий ДЗ', name: DZ_DEFAULT.name + ' — по умолчанию', tag: DZ_DEFAULT.tag, note: '' });
-    DZ_REVIEWERS.forEach(function (d) { idx.push({ cat: 'Проверяющий ДЗ', name: d.name, tag: d.tag, note: '' }); });
-    ESCALATIONS.forEach(function (e) { idx.push({ cat: 'Эскалация', name: e.name, tag: e.tag, note: e.note }); });
-    return idx;
+      return {
+        head: { name: lead + ' — руководитель', tag: t.tag, note: t.dept },
+        rows: t.mops.map(function (m) { return { name: m, tag: t.tag, note: 'МОП · команда ' + lead }; })
+      };
+    });
+    return [
+      { title: 'Продакты по кластерам', rows: prod },
+      { title: 'Лиды контента', rows: leads },
+      { title: 'Проверяющие ДЗ', rows: [{ name: DZ_DEFAULT.name + ' — по умолчанию', tag: DZ_DEFAULT.tag, note: '' }]
+        .concat(DZ_REVIEWERS.map(function (d) { return { name: d.name, tag: d.tag, note: '' }; })) },
+      { title: 'Эскалации', rows: ESCALATIONS.map(function (e) { return { name: e.name, tag: e.tag, note: e.note }; }) },
+      { title: 'Команды продаж (МОП)', teams: teams }
+    ];
   }
-  const TAG_INDEX = buildTagIndex();
+  const TAG_SECTIONS = buildTagSections();
+
+  function matchRow(row, terms) {
+    if (!terms.length) return true;
+    const hay = (row.name + ' ' + row.tag + ' ' + (row.note || '') + ' ' + (row.kw || '')).toLowerCase().replace(/ё/g, 'е');
+    return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+  }
 
   function renderTags(body) {
     const q = elt('input', 'width:100%;padding:8px 11px;border:1px solid #D1D5DB;border-radius:10px;font:600 13px ' + FONT + ';color:#111827;margin-bottom:8px;');
     q.type = 'search';
-    q.placeholder = 'Поиск: МОП, кластер, ситуация…';
+    q.placeholder = 'Поиск: МОП, кластер, имя, тег…';
     body.appendChild(q);
+    const host = elt('div', '');
+    body.appendChild(host);
 
-    const list = elt('div', '');
-    body.appendChild(list);
+    function tagRow(row, indent) {
+      const it = elt('div', 'display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 6px 5px ' + (indent || 6) + 'px;border-radius:8px;cursor:pointer;');
+      it.appendChild(elt('div', 'font-size:12px;font-weight:700;color:#111827;flex:1;', row.name + (row.note ? '  ·  ' + row.note : '')));
+      it.appendChild(elt('div', 'font:500 11.5px IBM Plex Mono,' + FONT + ';color:' + ACC_DEEP + ';white-space:nowrap;', row.tag));
+      it.onmouseenter = function () { it.style.background = '#F0F9FF'; };
+      it.onmouseleave = function () { it.style.background = 'transparent'; };
+      it.onclick = function () { copyText(row.tag); toast('Скопирован тег ' + row.tag); };
+      return it;
+    }
+    function collapsible(titleText, count, openByDefault) {
+      const wrap = elt('div', 'border-bottom:1px solid #EEF2F5;');
+      const head = elt('div', 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:8px 4px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#6B7280;');
+      const cont = elt('div', 'padding-bottom:6px;' + (openByDefault ? '' : 'display:none;'));
+      const caret = elt('span', 'color:#9CA3AF;font-size:10px;', openByDefault ? '▲' : '▼');
+      head.appendChild(elt('span', '', titleText + '  (' + count + ')'));
+      head.appendChild(caret);
+      head.onclick = function () {
+        const open = cont.style.display === 'none';
+        cont.style.display = open ? 'block' : 'none';
+        caret.textContent = open ? '▲' : '▼';
+      };
+      wrap.appendChild(head); wrap.appendChild(cont);
+      wrap._open = function () { cont.style.display = 'block'; caret.textContent = '▲'; };
+      wrap._cont = cont;
+      return wrap;
+    }
 
-    const draw = function () {
-      const v = q.value.trim().toLowerCase().replace(/ё/g, 'е');
-      list.innerHTML = '';
-      let shown = 0, lastCat = '';
-      TAG_INDEX.forEach(function (row) {
-        if (v) {
-          const hay = (row.cat + ' ' + row.name + ' ' + row.tag + ' ' + row.note + ' ' + (row.kw || '')).toLowerCase().replace(/ё/g, 'е');
-          if (v.split(/\s+/).some(function (t) { return hay.indexOf(t) === -1; })) return;
+    function draw() {
+      const terms = q.value.trim().toLowerCase().replace(/ё/g, 'е').split(/\s+/).filter(Boolean);
+      const searching = terms.length > 0;
+      host.innerHTML = '';
+      let anyHit = false;
+
+      TAG_SECTIONS.forEach(function (sec) {
+        if (sec.teams) {
+          let teamMatches = [];
+          sec.teams.forEach(function (t) {
+            const hRows = t.rows.filter(function (r) { return matchRow(r, terms); });
+            const headHit = matchRow(t.head, terms);
+            if (searching && !headHit && !hRows.length) return;
+            teamMatches.push({ t: t, rows: searching ? (headHit ? t.rows : hRows) : t.rows });
+          });
+          if (searching && !teamMatches.length) return;
+          const total = teamMatches.reduce(function (a, x) { return a + x.rows.length + 1; }, 0);
+          const box = collapsible(sec.title, total, searching);
+          teamMatches.forEach(function (tm) {
+            const sub = collapsible('  ' + tm.t.head.name.replace(' — руководитель', ''), tm.rows.length, searching);
+            sub._cont.appendChild(tagRow(tm.t.head, 10));
+            tm.rows.forEach(function (r) { sub._cont.appendChild(tagRow(r, 20)); });
+            box._cont.appendChild(sub);
+          });
+          host.appendChild(box);
+          anyHit = true;
+        } else {
+          const rows = sec.rows.filter(function (r) { return matchRow(r, terms); });
+          if (searching && !rows.length) return;
+          const box = collapsible(sec.title, rows.length, searching || sec.title === 'Продакты по кластерам');
+          rows.forEach(function (r) { box._cont.appendChild(tagRow(r)); });
+          host.appendChild(box);
+          anyHit = true;
         }
-        if (shown > 60) return;
-        if (row.cat !== lastCat) {
-          list.appendChild(elt('div', 'font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9CA3AF;margin:9px 0 3px;', row.cat));
-          lastCat = row.cat;
-        }
-        const it = elt('div', 'display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 6px;border-radius:8px;cursor:pointer;');
-        it.appendChild(elt('div', 'font-size:12.5px;font-weight:700;color:#111827;flex:1;', row.name + (row.note ? '  ·  ' + row.note : '')));
-        it.appendChild(elt('div', 'font:500 12px ' + 'IBM Plex Mono, ' + FONT + ';color:' + ACC_DEEP + ';white-space:nowrap;', row.tag));
-        it.onmouseenter = function () { it.style.background = '#F0F9FF'; };
-        it.onmouseleave = function () { it.style.background = 'transparent'; };
-        it.onclick = function () { copyText(row.tag); toast('Скопирован тег ' + row.tag); };
-        list.appendChild(it);
-        shown++;
       });
-      if (!shown) list.appendChild(elt('div', 'color:#9CA3AF;font-weight:700;font-size:12px;padding:14px 0;text-align:center;', 'Ничего не найдено'));
-    };
+      if (!anyHit) host.appendChild(elt('div', 'color:#9CA3AF;font-weight:700;font-size:12px;padding:14px 0;text-align:center;', 'Ничего не найдено'));
+    }
     q.addEventListener('input', draw);
     draw();
   }
