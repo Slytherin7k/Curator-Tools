@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.8.0
+// @version      0.9.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.8.0';
+  const VER = '0.9.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -710,34 +710,52 @@
   }
 
   /* ==================== КНОПКА В ШАПКЕ ==================== */
-  const BTN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+  // Вид кнопки — как у ключа/магнита Хэлпера, чтобы стояли ровным рядом с одинаковым зазором.
+  const BTN_SVG = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
+  function makeCuratorBtn() {
+    const btn = document.createElement('div');
+    btn.id = 'curator-tools-btn';
+    btn.title = 'Пинги в Телеграм и справочник тегов';
+    btn.style.cssText = 'width:30px;height:28px;flex:0 0 auto;box-sizing:border-box;display:flex;align-items:center;' +
+      'justify-content:center;cursor:pointer;background:#fff;border:1px solid #DADCE0;border-radius:5px;' +
+      'box-shadow:0 1px 2px rgba(0,0,0,.12);color:#5F6368;transition:background .15s;';
+    btn.innerHTML = BTN_SVG;
+    btn.onmouseenter = function () { btn.style.background = '#F1F3F4'; };
+    btn.onmouseleave = function () { btn.style.background = '#fff'; };
+    btn.onclick = function (e) { e.stopPropagation(); togglePanel(); };
+    return btn;
+  }
 
   function ensureButton() {
     const bar = document.querySelector('.request-content-title-act');
     if (!bar) {
-      const ex = document.getElementById('curator-hdr');
-      if (ex) ex.remove();
+      const w = document.getElementById('curator-hdr'); if (w) w.remove();
+      const b = document.getElementById('curator-tools-btn'); if (b) b.remove();
       return;
     }
+    const helper = document.getElementById('eduson-hdr-btns');
+    let btn = document.getElementById('curator-tools-btn');
+
+    if (helper && helper.parentElement === bar) {
+      // Хэлпер установлен — кладём кнопку последней В ЕГО контейнер: общий gap и один отступ на всю группу.
+      const standalone = document.getElementById('curator-hdr');
+      if (standalone) standalone.remove();
+      btn = document.getElementById('curator-tools-btn');
+      if (!btn) btn = makeCuratorBtn();
+      if (btn.parentElement !== helper || helper.lastElementChild !== btn) helper.appendChild(btn);
+      return;
+    }
+
+    // Хэлпера нет — свой контейнер в том же стиле (float:right, gap:5px, отступ справа 14px).
     let wrap = document.getElementById('curator-hdr');
     if (!wrap) {
-      wrap = elt('div', 'float:right;display:flex;align-items:center;height:34px;margin:0 4px 0 6px;');
+      wrap = document.createElement('div');
       wrap.id = 'curator-hdr';
-      const btn = elt('div', 'width:30px;height:28px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;' +
-        'cursor:pointer;background:#fff;border:1px solid #DADCE0;border-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.12);color:#5F6368;');
-      btn.id = 'curator-tools-btn';
-      btn.title = 'Пинги в Телеграм и справочник тегов';
-      btn.innerHTML = BTN_SVG;
-      btn.onclick = function (e) { e.stopPropagation(); togglePanel(); };
-      wrap.appendChild(btn);
+      wrap.style.cssText = 'float:right;display:flex;align-items:center;gap:5px;height:34px;margin:0 14px 0 6px;';
+      wrap.appendChild((btn && !btn.parentElement) ? btn : makeCuratorBtn());
     }
-    // держим рядом с кнопками хэлпера: перед #eduson-hdr-btns, иначе последним
-    const helper = document.getElementById('eduson-hdr-btns');
-    if (helper && helper.parentElement === bar) {
-      if (helper.previousElementSibling !== wrap) bar.insertBefore(wrap, helper);
-    } else if (bar.lastElementChild !== wrap) {
-      bar.appendChild(wrap);
-    }
+    if (bar.lastElementChild !== wrap) bar.appendChild(wrap);
   }
 
   console.log(TAG, 'запущен, версия ' + VER);
