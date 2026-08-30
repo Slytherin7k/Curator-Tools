@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.9.0
+// @version      0.10.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.9.0';
+  const VER = '0.10.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -152,6 +152,7 @@
     { name: 'Лена Чубарь', tag: '@El_Chubb', note: 'ЭДО по закрывающим' },
     { name: 'Антон Трепко', tag: '@anteneshe', note: 'отправка диплома, проверка в ФИС ФРДО · замещение Маши Киликян по закрывающим' },
     { name: 'Катя Дедловская', tag: '@ededlovskaya', note: 'стажировка в IT и дизайне — тегать в чатах соответствующих кластеров' },
+    { name: 'Мария Дудникова', tag: '@dudnikovamary', note: 'отключение от рассылки контактов, маркетинг' },
     { name: 'Поиск эксперта для консультации', tag: '@ededlovskaya @ChristinaErnandez', note: 'Катя Дедловская, Кристина Эрнандес · доска в Notion + чат обсуждения консультаций — задачу на доску ставим всегда' }
   ];
 
