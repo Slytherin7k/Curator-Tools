@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.4.0
+// @version      0.5.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.4.0';
+  const VER = '0.5.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -174,14 +174,14 @@
   const PINGS = [
     { id: 'question', title: 'Завис вопрос', suggest: 'leadcontent', linkKind: 'notion', linkLabel: 'Вопрос',
       text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\n{ссылка}' },
-    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'homework', linkLabel: 'Дашборд ДЗ',
+    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'homework', linkLabel: 'Карточка ДЗ',
       text: 'Привет, {тег}! Подвисла проверка ДЗ, студент {email} — посмотри, пожалуйста (по этой почте найдёшь непроверенные карточки).\n{ссылка}' },
     { id: 'sending', title: 'Задержка отправки диплома', suggest: 'diploma', linkKind: 'asana', linkLabel: 'Задача в Асане',
       text: 'Привет, {тег}! Подвисла отправка диплома, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\n{ссылка}' },
     { id: 'payment', title: 'Вопрос по оплате / подарочному курсу', suggest: 'paymanual', linkKind: 'amo', linkLabel: 'Сделка',
-      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному курсу — свяжись с ним, пожалуйста.\nМОП: {моп}\n{ссылка}' },
+      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному курсу — свяжись с ним, пожалуйста.\n{ссылка}' },
     { id: 'lead', title: 'Новый лид', suggest: 'none', linkKind: 'amo', linkLabel: 'Сделка',
-      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\n{ссылка}' }
+      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя}\n{email}\n{телефон}\n{ссылка}' }
   ];
 
   /* ==================== ЧТЕНИЕ КОНТЕКСТА ==================== */
@@ -480,6 +480,7 @@
   const LINK_META = {
     notion: { label: 'Ссылка на карточку Notion', ph: 'ссылка на карточку Notion' },
     admin: { label: 'Ссылка на карточку в админке', ph: 'https://www.eduson.tv/admin/…' },
+    homework: { label: 'Ссылка на карточку ДЗ', ph: 'https://…eduson.tv/ru/dashboard/homework_attempts/…' },
     asana: { label: 'Ссылка на задачу в Asana', ph: 'ссылка на задачу в Asana' },
     amo: { label: 'Ссылка на сделку', ph: 'https://eduson.amocrm.ru/leads/detail/…' }
   };
@@ -507,10 +508,10 @@
       if (crs) body.appendChild(elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:2px;', 'курс: ' + crs));
     }
 
-    // --- МОП (только для 'paymanual') ---
+    // --- МОП (только для 'paymanual') — подсказка кому писать, в текст пинга НЕ идёт ---
     let mopInput = null, mopNote = null;
     if (ping.suggest === 'paymanual') {
-      body.appendChild(elt('div', fieldLabel, 'МОП (имя)'));
+      body.appendChild(elt('div', fieldLabel, 'МОП сделки (для справки, в пинг не идёт)'));
       mopInput = elt('input', inputCss);
       mopInput.placeholder = 'кто вёл сделку';
       body.appendChild(mopInput);
