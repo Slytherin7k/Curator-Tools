@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.6.0
+// @version      0.7.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.6.0';
+  const VER = '0.7.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -150,7 +150,6 @@
     { name: 'Юля Проняева', tag: '@yilya_pronyaeva', note: 'справки об оплате, дипломы, негатив из чатов, претензии, сложные и негативные кейсы, непонятки по тикетам · можно в чат онбординга' },
     { name: 'Маша Киликян', tag: '@Sh_enma', note: 'закрывающие документы, справки' },
     { name: 'Лена Чубарь', tag: '@El_Chubb', note: 'ЭДО по закрывающим' },
-    { name: 'Артём Лаврёнов', tag: '', note: 'сканы и оригиналы закрывающих по почте' },
     { name: 'Антон Трепко', tag: '@anteneshe', note: 'отправка диплома, проверка в ФИС ФРДО · замещение Маши Киликян по закрывающим' },
     { name: 'Катя Дедловская', tag: '@ededlovskaya', note: 'стажировка в IT и дизайне — тегать в чатах соответствующих кластеров' },
     { name: 'Поиск эксперта для консультации', tag: '', note: 'доска в Notion + чат обсуждения консультаций (Кристина Эрнандес, Катя Дедловская) — задачу на доску ставим всегда' }
@@ -175,7 +174,7 @@
     { id: 'question', title: 'Завис вопрос', suggest: 'leadcontent', linkKind: 'notion', linkLabel: 'Вопрос',
       text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\n{ссылка}' },
     { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'homework', linkLabel: 'Карточка ДЗ',
-      text: 'Привет, {тег}! Подвисла проверка ДЗ, студент {email} — посмотри, пожалуйста (по этой почте найдёшь непроверенные карточки).\n{ссылка}' },
+      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\n{ссылка}' },
     { id: 'sending', title: 'Задержка отправки диплома', suggest: 'diploma', linkKind: 'asana', linkLabel: 'Задача в Асане',
       text: 'Привет, {тег}! Подвисла отправка диплома, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\n{ссылка}' },
     { id: 'payment', title: 'Вопрос по оплате / подарочному курсу', suggest: 'paymanual', linkKind: 'amo', linkLabel: 'Сделка',
@@ -249,27 +248,10 @@
     return /^https?:\/\//.test(v) ? v : '';
   }
 
-  // Домен курса — из ссылок вида https://academy-…​.eduson.tv/… в переписке или сайдбаре.
-  function courseDomain() {
-    const links = Array.from(document.querySelectorAll('a[href*=".eduson.tv/"]'));
-    for (const a of links) {
-      const m = (a.href || '').match(/^https?:\/\/([a-z0-9][a-z0-9-]*)\.eduson\.tv\//i);
-      if (m && m[1].toLowerCase() !== 'www') return m[1];
-    }
-    return '';
-  }
-  function homeworkLink() {
-    const d = courseDomain();
-    return d
-      ? ('https://' + d + '.eduson.tv/ru/dashboard/homework_attempts')
-      : 'https://{домен курса}.eduson.tv/ru/dashboard/homework_attempts';
-  }
-
   function autoLink(kind) {
     if (kind === 'amo') return amoLink();
     if (kind === 'admin') return adminLink();
-    if (kind === 'homework') return homeworkLink();
-    return ''; // notion, asana — вписывает куратор
+    return ''; // notion, asana, homework — вписывает куратор
   }
 
   /* ---------- amoCRM: имя МОП по сделке ---------- */
