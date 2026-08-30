@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.3.0
+// @version      0.4.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -9,13 +9,15 @@
 // @downloadURL  https://raw.githubusercontent.com/Slytherin7k/Curator-Tools/main/curator-tools.user.js
 // @match        https://*.omnidesk.ru/*
 // @grant        GM_setClipboard
+// @grant        GM_xmlhttpRequest
+// @connect      eduson.amocrm.ru
 // @run-at       document-idle
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  const VER = '0.3.0';
+  const VER = '0.4.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -172,12 +174,12 @@
   const PINGS = [
     { id: 'question', title: 'Завис вопрос', suggest: 'leadcontent', linkKind: 'notion', linkLabel: 'Вопрос',
       text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\n{ссылка}' },
-    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'admin', linkLabel: 'Студент',
-      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\n{ссылка}' },
+    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'homework', linkLabel: 'Дашборд ДЗ',
+      text: 'Привет, {тег}! Подвисла проверка ДЗ, студент {email} — посмотри, пожалуйста (по этой почте найдёшь непроверенные карточки).\n{ссылка}' },
     { id: 'sending', title: 'Задержка отправки диплома', suggest: 'diploma', linkKind: 'asana', linkLabel: 'Задача в Асане',
       text: 'Привет, {тег}! Подвисла отправка диплома, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\n{ссылка}' },
-    { id: 'payment', title: 'Вопрос по оплате / подарочному', suggest: 'paymanual', linkKind: 'amo', linkLabel: 'Сделка',
-      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному сертификату — свяжись с ним, пожалуйста.\nМОП: {моп}\n{ссылка}' },
+    { id: 'payment', title: 'Вопрос по оплате / подарочному курсу', suggest: 'paymanual', linkKind: 'amo', linkLabel: 'Сделка',
+      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному курсу — свяжись с ним, пожалуйста.\nМОП: {моп}\n{ссылка}' },
     { id: 'lead', title: 'Новый лид', suggest: 'none', linkKind: 'amo', linkLabel: 'Сделка',
       text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\n{ссылка}' }
   ];
@@ -226,14 +228,18 @@
   function lastClientMsg() { const m = clientMsgs(); return m[m.length - 1] || ''; }
   function firstClientMsg() { const m = clientMsgs(); return m[0] || ''; }
 
-  function amoLink() {
-    const a = Array.from(document.querySelectorAll('a[href*="amocrm.ru"], a[href*="/leads/detail/"]'))
-      .find(function (x) { return /amocrm\.ru|leads\/detail/.test(x.href); });
-    if (a) return a.href;
-    // номер сделки из сайдбара («AMOCRM (ИЗ ЗАДАЧ ПО ЗАКРЫТЫМ СДЕЛКАМ)»)
+  function amoDealNum() {
     const num = sidebarValue(/amocrm/i);
-    const m = (num || '').match(/\d{5,}/);
-    return m ? ('https://eduson.amocrm.ru/leads/detail/' + m[0]) : '';
+    let m = (num || '').match(/\d{5,}/);
+    if (m) return m[0];
+    const a = Array.from(document.querySelectorAll('a[href*="/leads/detail/"]'))
+      .find(function (x) { return /leads\/detail\/\d+/.test(x.href); });
+    m = a && a.href.match(/leads\/detail\/(\d+)/);
+    return m ? m[1] : '';
+  }
+  function amoLink() {
+    const n = amoDealNum();
+    return n ? ('https://eduson.amocrm.ru/leads/detail/' + n) : '';
   }
 
   function adminLink() {
@@ -243,10 +249,70 @@
     return /^https?:\/\//.test(v) ? v : '';
   }
 
+  // Домен курса — из ссылок вида https://academy-…​.eduson.tv/… в переписке или сайдбаре.
+  function courseDomain() {
+    const links = Array.from(document.querySelectorAll('a[href*=".eduson.tv/"]'));
+    for (const a of links) {
+      const m = (a.href || '').match(/^https?:\/\/([a-z0-9][a-z0-9-]*)\.eduson\.tv\//i);
+      if (m && m[1].toLowerCase() !== 'www') return m[1];
+    }
+    return '';
+  }
+  function homeworkLink() {
+    const d = courseDomain();
+    return d
+      ? ('https://' + d + '.eduson.tv/ru/dashboard/homework_attempts')
+      : 'https://{домен курса}.eduson.tv/ru/dashboard/homework_attempts';
+  }
+
   function autoLink(kind) {
     if (kind === 'amo') return amoLink();
     if (kind === 'admin') return adminLink();
+    if (kind === 'homework') return homeworkLink();
     return ''; // notion, asana — вписывает куратор
+  }
+
+  /* ---------- amoCRM: имя МОП по сделке ---------- */
+  function gmFetch(url) {
+    return new Promise(function (resolve, reject) {
+      GM_xmlhttpRequest({
+        method: 'GET', url: url, timeout: 15000,
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        onload: function (res) {
+          if (res.status === 200) {
+            try { resolve(JSON.parse(res.responseText)); } catch (e) { reject(new Error('bad-json')); }
+          } else if (res.status === 204) { resolve({}); }
+          else if (res.status === 401 || res.status === 403) { reject(new Error('NOAUTH')); }
+          else { reject(new Error('http-' + res.status)); }
+        },
+        onerror: function () { reject(new Error('net')); },
+        ontimeout: function () { reject(new Error('timeout')); }
+      });
+    });
+  }
+  async function fetchMopName(dealNum) {
+    if (!dealNum) return { name: '', sure: false };
+    const base = 'https://eduson.amocrm.ru';
+    // 1) служебное сообщение «Коллега … продал курс …» — это и есть МОП
+    try {
+      const j = await gmFetch(base + '/api/v4/leads/' + dealNum + '/notes?filter[note_type]=common&order[id]=desc&limit=250');
+      const notes = ((j._embedded || {}).notes) || [];
+      for (const n of notes) {
+        const t = (n.params && (n.params.text || n.params.message)) || '';
+        const m = t.match(/Коллега\s+(.+?)\s+продал/i);
+        if (m) return { name: m[1].replace(/\s+/g, ' ').trim(), sure: true };
+      }
+    } catch (e) { if (e.message === 'NOAUTH') throw e; }
+    // 2) запасной путь — ответственный за сделку
+    try {
+      const l = await gmFetch(base + '/api/v4/leads/' + dealNum);
+      const uid = l && l.responsible_user_id;
+      if (uid) {
+        const u = await gmFetch(base + '/api/v4/users/' + uid);
+        if (u && u.name) return { name: u.name, sure: false };
+      }
+    } catch (e) { if (e.message === 'NOAUTH') throw e; }
+    return { name: '', sure: false };
   }
 
   function detectCluster(course) {
@@ -442,12 +508,30 @@
     }
 
     // --- МОП (только для 'paymanual') ---
-    let mopInput = null;
+    let mopInput = null, mopNote = null;
     if (ping.suggest === 'paymanual') {
       body.appendChild(elt('div', fieldLabel, 'МОП (имя)'));
       mopInput = elt('input', inputCss);
       mopInput.placeholder = 'кто вёл сделку';
       body.appendChild(mopInput);
+      mopNote = elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:2px;', '');
+      body.appendChild(mopNote);
+      const deal = amoDealNum();
+      if (deal) {
+        mopNote.textContent = 'ищу в амо…';
+        fetchMopName(deal).then(function (r) {
+          if (r.name) {
+            mopInput.value = r.name;
+            mopNote.textContent = r.sure ? 'из сообщения о продаже в амо' : 'ответственный за сделку в амо — проверь';
+            recompute();
+          } else { mopNote.textContent = 'в амо не нашла — впиши имя сам'; }
+        }).catch(function (e) {
+          mopNote.textContent = e && e.message === 'NOAUTH'
+            ? 'амо не пустило — открой амо в соседней вкладке и вернись' : 'амо недоступно — впиши имя сам';
+        });
+      } else {
+        mopNote.textContent = 'номера сделки в карточке нет — впиши имя сам';
+      }
     }
 
     // --- Кому (выбор тега) ---
@@ -463,6 +547,10 @@
         manualInput.style.cssText = inputCss + 'margin-top:5px;display:none;';
       }
       body.appendChild(manualInput);
+      if (ping.suggest === 'leadcontent') {
+        body.appendChild(elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:3px;',
+          'Есть ответственный в карточке — впиши его. Нет — тег лида кластера (по умолчанию).'));
+      }
     }
 
     // --- Ссылка ---
@@ -494,7 +582,8 @@
       const opts = suggestTags(ping, clusterSel ? clusterSel.value : null);
       if (!opts.length) tagSel.appendChild(new Option(ping.suggest === 'leadcontent' ? '— сначала выбери кластер —' : '—', ''));
       opts.forEach(function (o) { tagSel.appendChild(new Option(o.label + '  ·  ' + o.tag, o.tag)); });
-      tagSel.appendChild(new Option('— вписать тег вручную —', '__manual__'));
+      tagSel.appendChild(new Option(ping.suggest === 'leadcontent'
+        ? '— в карточке есть ответственный, впишу сам —' : '— вписать тег вручную —', '__manual__'));
       tagSel.value = opts.length ? opts[0].tag : '';
       manualInput.style.display = 'none';
     }
