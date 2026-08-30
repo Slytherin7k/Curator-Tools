@@ -1,23 +1,26 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.10.0
+// @version      0.11.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
 // @updateURL    https://raw.githubusercontent.com/Slytherin7k/Curator-Tools/main/curator-tools.user.js
 // @downloadURL  https://raw.githubusercontent.com/Slytherin7k/Curator-Tools/main/curator-tools.user.js
 // @match        https://*.omnidesk.ru/*
+// @match        https://eduson.amocrm.ru/*
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @connect      eduson.amocrm.ru
+// @connect      amocrm.ru
 // @run-at       document-idle
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  const VER = '0.10.0';
+  const VER = '0.11.0';
+  const ON_OMNI = /(^|\.)omnidesk\.ru$/.test(location.hostname);
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -273,29 +276,34 @@
       });
     });
   }
+  // МОП берём из полей самой сделки (эндпоинт /api/v4/leads/<id> — тот же, что у магнита).
+  // Приоритет полей: «УР МОП» → «Первый Менеджер» → «Менеджер КЦ». Возвращает { name, sure, err }.
   async function fetchMopName(dealNum) {
-    if (!dealNum) return { name: '', sure: false };
+    if (!dealNum) return { name: '', sure: false, err: 'no-deal' };
     const base = 'https://eduson.amocrm.ru';
-    // 1) служебное сообщение «Коллега … продал курс …» — это и есть МОП
+    let l;
     try {
-      const j = await gmFetch(base + '/api/v4/leads/' + dealNum + '/notes?filter[note_type]=common&order[id]=desc&limit=250');
-      const notes = ((j._embedded || {}).notes) || [];
-      for (const n of notes) {
-        const t = (n.params && (n.params.text || n.params.message)) || '';
-        const m = t.match(/Коллега\s+(.+?)\s+продал/i);
-        if (m) return { name: m[1].replace(/\s+/g, ' ').trim(), sure: true };
-      }
-    } catch (e) { if (e.message === 'NOAUTH') throw e; }
-    // 2) запасной путь — ответственный за сделку
-    try {
-      const l = await gmFetch(base + '/api/v4/leads/' + dealNum);
-      const uid = l && l.responsible_user_id;
-      if (uid) {
-        const u = await gmFetch(base + '/api/v4/users/' + uid);
-        if (u && u.name) return { name: u.name, sure: false };
-      }
-    } catch (e) { if (e.message === 'NOAUTH') throw e; }
-    return { name: '', sure: false };
+      l = await gmFetch(base + '/api/v4/leads/' + dealNum);
+    } catch (e) {
+      return { name: '', sure: false, err: e.message };
+    }
+    const cf = (l && l.custom_fields_values) || [];
+    const fieldVal = function (re) {
+      const f = cf.find(function (x) { return re.test(x.field_name || ''); });
+      const v = f && f.values && f.values[0] && f.values[0].value;
+      return (typeof v === 'string' && /[а-яёa-z]/i.test(v)) ? v.replace(/\s+/g, ' ').trim() : '';
+    };
+    const mop = fieldVal(/^ур\s*моп$/i) || fieldVal(/первый\s*менеджер/i) || fieldVal(/менеджер\s*кц/i);
+    if (mop) return { name: mop, sure: true, err: '' };
+    // запасной — ответственный за сделку
+    const uid = l && l.responsible_user_id;
+    if (uid) {
+      try {
+        const usr = await gmFetch(base + '/api/v4/users/' + uid);
+        if (usr && usr.name) return { name: usr.name, sure: false, err: '' };
+      } catch (e) { /* тихо */ }
+    }
+    return { name: '', sure: false, err: '' };
   }
 
   function detectCluster(course) {
@@ -502,19 +510,24 @@
       body.appendChild(mopNote);
       const deal = amoDealNum();
       if (deal) {
-        mopNote.textContent = 'ищу в амо…';
+        mopNote.textContent = 'смотрю в амо (сделка ' + deal + ')…';
         fetchMopName(deal).then(function (r) {
           if (r.name) {
             mopInput.value = r.name;
-            mopNote.textContent = r.sure ? 'из сообщения о продаже в амо' : 'ответственный за сделку в амо — проверь';
+            mopNote.textContent = r.sure ? 'из сообщения о продаже в амо' : 'ответственный за сделку в амо — проверь, тот ли это МОП';
             recompute();
-          } else { mopNote.textContent = 'в амо не нашла — впиши имя сам'; }
-        }).catch(function (e) {
-          mopNote.textContent = e && e.message === 'NOAUTH'
-            ? 'амо не пустило — открой амо в соседней вкладке и вернись' : 'амо недоступно — впиши имя сам';
+          } else if (r.err === 'NOAUTH') {
+            mopNote.textContent = 'амо не пустило (' + deal + '). Открой eduson.amocrm.ru в соседней вкладке, войди, вернись и открой пинг заново. Если не помогает — впиши МОП сам.';
+          } else if (r.err && r.err !== 'no-deal') {
+            mopNote.textContent = 'амо ответило «' + r.err + '» по сделке ' + deal + ' — впиши имя МОП сам.';
+          } else {
+            mopNote.textContent = 'МОП в амо не нашёлся — впиши имя сам.';
+          }
+        }).catch(function () {
+          mopNote.textContent = 'не получилось прочитать амо — впиши имя МОП сам.';
         });
       } else {
-        mopNote.textContent = 'номера сделки в карточке нет — впиши имя сам';
+        mopNote.textContent = 'номера сделки в карточке нет — впиши имя сам.';
       }
     }
 
@@ -759,7 +772,10 @@
     if (bar.lastElementChild !== wrap) bar.appendChild(wrap);
   }
 
-  console.log(TAG, 'запущен, версия ' + VER);
-  ensureButton();
-  setInterval(ensureButton, 1500);
+  console.log(TAG, 'запущен, версия ' + VER, '| host:', location.hostname);
+  // На eduson.amocrm.ru скрипт нужен только ради разрешения @connect (чтения сделки) — UI не строим.
+  if (ON_OMNI) {
+    ensureButton();
+    setInterval(ensureButton, 1500);
+  }
 })();
