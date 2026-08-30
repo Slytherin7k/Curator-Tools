@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Eduson Curator — Пинги и Теги
 // @namespace    eduson-curator-tools
-// @version      0.2.0
+// @version      0.3.0
 // @description  Кнопка в шапке обращения OmniDesk: готовые пинги в Телеграм (с подстановкой тега, ссылки и данных студента) и поиск по справочнику тегов Эдюсон
 // @author       Astanina Natalia
 // @homepageURL  https://github.com/Slytherin7k/Curator-Tools
@@ -15,7 +15,7 @@
 (function () {
   'use strict';
 
-  const VER = '0.2.0';
+  const VER = '0.3.0';
   const TAG = '[curator-tools]';
   const ACC = '#0284C7';
   const ACC_DEEP = '#075985';
@@ -142,36 +142,44 @@
     { name: 'Нина Пилипенко', tag: '@Chosi88' }
   ];
 
+  const DIPLOMA_OWNER = { name: 'Антон Трепко', tag: '@anteneshe' };
+
   const ESCALATIONS = [
     { name: 'Юля Проняева', tag: '@yilya_pronyaeva', note: 'справки об оплате, дипломы, негатив из чатов, претензии, сложные и негативные кейсы, непонятки по тикетам · можно в чат онбординга' },
     { name: 'Маша Киликян', tag: '@Sh_enma', note: 'закрывающие документы — передаём её почту, шаблон «Нужны закрывающие документы»; не отвечают → чат «Закрывашки»' },
-    { name: 'Антон Трепко', tag: '@anteneshe', note: 'отправка диплома, проверка в ФИС ФРДО · замещение Маши Киликян по закрывающим' },
-    { name: 'Катя Дедловская', tag: '@ededlovskaya', note: 'стажировка в IT и дизайне — в чате нужного кластера; поиск экспертов — доска в Notion + чат обсуждения консультаций' },
+    { name: 'Ленара Галялиева', tag: '@Lenara_Galyalieva', note: 'закрывающие / B2B (рядом с Машей Киликян)' },
     { name: 'Лена Чубарь', tag: '@El_Chubb', note: 'ЭДО по закрывающим · B2B' },
-    { name: 'Ленара Галялиева', tag: '@Lenara_Galyalieva', note: 'B2B' },
-    { name: 'Александр Кобзев', tag: '@A_Kobzev', note: 'директор департамента Финансы и Бухгалтерия' },
-    { name: 'Вагиз Шарипов', tag: '@vagiz_sh', note: 'директор департамента Менеджмент, МПП и HR' },
-    { name: 'Алексей Семериков', tag: '@Semerikov_Aleksey', note: 'директор департамента Маркетинг, IT и Аналитика' }
+    { name: 'Артём Лаврёнов', tag: '', note: 'сканы и оригиналы закрывающих по почте' },
+    { name: 'Антон Трепко', tag: '@anteneshe', note: 'отправка диплома, проверка в ФИС ФРДО · замещение Маши Киликян по закрывающим' },
+    { name: 'Катя Дедловская', tag: '@ededlovskaya', note: 'стажировка в IT и дизайне — в чате нужного кластера; поиск экспертов — доска в Notion + чат обсуждения консультаций' }
   ];
 
-  // Пинги. suggest — кого предлагать в выборе тега:
-  //   'leads'  — продакт + лид контента кластера (кластер выбирается/меняется в панели)
-  //   'dz'     — проверяющие ДЗ (по умолчанию — Мария Старцева)
-  //   'teams'  — руководители команд продаж (11)
-  //   'none'   — тег не нужен
-  // linkKind — какую ссылку подставить по кнопке «взять из карточки»: 'amo' или '' (Notion — вписывает куратор).
-  // {тег} {ссылка} {цитата} {имя} {email} {телефон} — подставляются.
+  // B2B — тоже департамент. Директора департаментов + B2B.
+  const DIRECTORS = [
+    { name: 'Александр Кобзев', tag: '@A_Kobzev', note: 'департамент Финансы и Бухгалтерия' },
+    { name: 'Вагиз Шарипов', tag: '@vagiz_sh', note: 'департамент Менеджмент, МПП и HR' },
+    { name: 'Алексей Семериков', tag: '@Semerikov_Aleksey', note: 'департамент Маркетинг, IT и Аналитика' },
+    { name: 'Лена Чубарь', tag: '@El_Chubb', note: 'департамент B2B' },
+    { name: 'Ленара Галялиева', tag: '@Lenara_Galyalieva', note: 'департамент B2B' }
+  ];
+
+  // Пинги.
+  //   suggest: 'leadcontent' (лид контента → продакт кластера), 'dz' (проверяющие),
+  //            'diploma' (всегда Антон Трепко), 'paymanual' (МОП по имени + тег вписывает куратор), 'none'
+  //   linkKind: 'notion' | 'admin' (автозаполн. из поля АДМИНКА) | 'asana' | 'amo' (автозаполн. номером сделки)
+  //   linkLabel: слово-метка перед ссылкой (в Телеграм-версии становится кликабельным)
+  //   {тег} {метка+ссылка} {моп} {цитата} {имя} {email} {телефон} — подставляются.
   const PINGS = [
-    { id: 'question', title: 'Завис вопрос', suggest: 'leads', linkKind: '',
-      text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\nВопрос: {ссылка}' },
-    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: '',
-      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\nДЗ: {ссылка}' },
-    { id: 'sending', title: 'Задержка отправки', suggest: 'leads', linkKind: '',
-      text: 'Привет, {тег}! Подвисла отправка, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\nОтправка: {ссылка}' },
-    { id: 'payment', title: 'Вопрос по оплате / подарочному', suggest: 'teams', linkKind: 'amo',
-      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному сертификату — свяжись с ним, пожалуйста.\nСделка: {ссылка}' },
-    { id: 'lead', title: 'Новый лид', suggest: 'none', linkKind: 'amo',
-      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\nСделка: {ссылка}' }
+    { id: 'question', title: 'Завис вопрос', suggest: 'leadcontent', linkKind: 'notion', linkLabel: 'Вопрос',
+      text: 'Привет, {тег}! Подвис вопрос от студента — посмотри, пожалуйста.\n{ссылка}' },
+    { id: 'dz', title: 'Зависла проверка ДЗ', suggest: 'dz', linkKind: 'admin', linkLabel: 'Студент',
+      text: 'Привет, {тег}! Подвисла проверка ДЗ — посмотри, пожалуйста.\n{ссылка}' },
+    { id: 'sending', title: 'Задержка отправки диплома', suggest: 'diploma', linkKind: 'asana', linkLabel: 'Задача в Асане',
+      text: 'Привет, {тег}! Подвисла отправка диплома, задержка уже большая — возьми, пожалуйста, в ближайшую очередь.\n{ссылка}' },
+    { id: 'payment', title: 'Вопрос по оплате / подарочному', suggest: 'paymanual', linkKind: 'amo', linkLabel: 'Сделка',
+      text: 'Привет, {тег}! Студент написал в амо по оплате / подарочному сертификату — свяжись с ним, пожалуйста.\nМОП: {моп}\n{ссылка}' },
+    { id: 'lead', title: 'Новый лид', suggest: 'none', linkKind: 'amo', linkLabel: 'Сделка',
+      text: '✳️ НОВЫЙ ЛИД ✳️\nВозьмите в работу, пожалуйста.\n\nСообщение клиента:\n«{цитата}»\n\n{имя} · {email} · {телефон}\n{ссылка}' }
   ];
 
   /* ==================== ЧТЕНИЕ КОНТЕКСТА ==================== */
@@ -228,6 +236,19 @@
     return m ? ('https://eduson.amocrm.ru/leads/detail/' + m[0]) : '';
   }
 
+  function adminLink() {
+    const a = Array.from(document.querySelectorAll('.right_info_panels a[href*="eduson.tv/admin"], #info_panel_wrap a[href*="eduson.tv/admin"]'))[0];
+    if (a) return a.href;
+    const v = sidebarValue(/^админк/i);
+    return /^https?:\/\//.test(v) ? v : '';
+  }
+
+  function autoLink(kind) {
+    if (kind === 'amo') return amoLink();
+    if (kind === 'admin') return adminLink();
+    return ''; // notion, asana — вписывает куратор
+  }
+
   function detectCluster(course) {
     const c = (course || readCourse() || '').toLowerCase().replace(/ё/g, 'е');
     if (!c) return null;
@@ -241,37 +262,52 @@
   }
 
   /* ==================== ПОДСТАНОВКА В ПИНГ ==================== */
-  // Кого предложить в выборе тега для пинга и кластера.
+  // Кого предложить в выборе тега.
   function suggestTags(ping, cluster) {
     if (ping.suggest === 'dz') {
       return [{ label: DZ_DEFAULT.name + ' — по умолчанию', tag: DZ_DEFAULT.tag }]
         .concat(DZ_REVIEWERS.map(function (d) { return { label: d.name, tag: d.tag }; }));
     }
-    if (ping.suggest === 'teams') {
-      return Object.keys(TEAMS).map(function (lead) {
-        return { label: lead + (TEAMS[lead].dept ? ' · ' + TEAMS[lead].dept : ''), tag: TEAMS[lead].tag };
-      });
+    if (ping.suggest === 'diploma') {
+      return [{ label: DIPLOMA_OWNER.name + ' — ответственный по дипломам', tag: DIPLOMA_OWNER.tag }];
     }
-    if (ping.suggest === 'leads') {
+    if (ping.suggest === 'leadcontent') {
       if (!cluster || !CLUSTERS[cluster]) return [];
       const c = CLUSTERS[cluster];
-      const r = [{ label: 'Продакт · ' + c.product.name, tag: c.product.tag }];
+      const r = [];
       if (c.lead) r.push({ label: 'Лид контента · ' + c.lead.name, tag: c.lead.tag });
+      r.push({ label: 'Продакт · ' + c.product.name, tag: c.product.tag });
       return r;
     }
     return [];
   }
 
-  function pingFill(ping, tag, link) {
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Возвращает { plain, html } — html-версия делает слово-метку кликабельной (для вставки в Telegram Desktop).
+  function pingFill(ping, tag, link, mop) {
     const u = readUser();
     const quote = ping.id === 'lead' ? (firstClientMsg() || lastClientMsg()) : lastClientMsg();
-    return ping.text
-      .replace('{тег}', tag || '{тег}')
-      .replace('{ссылка}', link || '{вставь ссылку}')
-      .replace('{цитата}', quote || '{цитата из сообщения}')
-      .replace('{имя}', u.name || '{имя}')
-      .replace('{email}', u.email || '{email}')
-      .replace('{телефон}', u.phone || '{телефон}');
+    const lbl = ping.linkLabel || 'Ссылка';
+    const linkPlain = link ? (lbl + ': ' + link) : (lbl + ': {вставь ссылку}');
+    const linkHtml = link
+      ? ('<a href="' + escapeHtml(link) + '">' + escapeHtml(lbl) + '</a>')
+      : (escapeHtml(lbl) + ': {вставь ссылку}');
+
+    function build(linkPart) {
+      return ping.text
+        .replace('{тег}', tag || '{тег}')
+        .replace('{ссылка}', linkPart)
+        .replace('{моп}', mop || '{имя МОП}')
+        .replace('{цитата}', quote || '{цитата из сообщения}')
+        .replace('{имя}', u.name || '{имя}')
+        .replace('{email}', u.email || '{email}')
+        .replace('{телефон}', u.phone || '{телефон}');
+    }
+    const html = escapeHtml(build('@@LINK@@')).replace('@@LINK@@', linkHtml).replace(/\n/g, '<br>');
+    return { plain: build(linkPlain), html: html };
   }
 
   /* ==================== UI ==================== */
@@ -279,6 +315,20 @@
     try { GM_setClipboard(t); } catch (e) {
       try { navigator.clipboard.writeText(t); } catch (e2) {}
     }
+  }
+
+  // Копирует и обычный текст, и html (Telegram Desktop сохраняет кликабельную ссылку).
+  function copyRich(plain, html) {
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        navigator.clipboard.write([new window.ClipboardItem({
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
+          'text/html': new Blob([html], { type: 'text/html' })
+        })]).catch(function () { copyText(plain); });
+        return;
+      }
+    } catch (e) {}
+    copyText(plain);
   }
 
   let toastTimer = null;
@@ -312,7 +362,7 @@
   }
 
   function buildPanel() {
-    const p = elt('div', 'position:fixed;z-index:2147483646;top:64px;right:18px;width:340px;max-height:78vh;overflow:auto;' +
+    const p = elt('div', 'position:fixed;z-index:2147483646;top:64px;right:18px;width:370px;max-height:80vh;overflow:auto;' +
       'background:#fff;color:#1F2937;border:1px solid #E5E7EB;border-radius:16px;box-shadow:0 18px 48px rgba(15,23,42,.24);' +
       'font-family:' + FONT + ';padding:12px 14px;');
     p.id = PANEL_ID;
@@ -361,6 +411,13 @@
   const fieldLabel = 'font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#9CA3AF;margin:10px 0 3px;';
   const inputCss = 'width:100%;padding:7px 10px;border:1px solid #D1D5DB;border-radius:9px;font:600 12.5px ' + FONT + ';color:#111827;background:#fff;';
 
+  const LINK_META = {
+    notion: { label: 'Ссылка на карточку Notion', ph: 'ссылка на карточку Notion' },
+    admin: { label: 'Ссылка на карточку в админке', ph: 'https://www.eduson.tv/admin/…' },
+    asana: { label: 'Ссылка на задачу в Asana', ph: 'ссылка на задачу в Asana' },
+    amo: { label: 'Ссылка на сделку', ph: 'https://eduson.amocrm.ru/leads/detail/…' }
+  };
+
   function showPingResult(body, ping) {
     body.innerHTML = '';
     const back = elt('div', 'font-size:11px;font-weight:800;color:' + ACC + ';cursor:pointer;margin-bottom:6px;', '‹ назад к пингам');
@@ -368,38 +425,52 @@
     body.appendChild(back);
     body.appendChild(elt('div', 'font-weight:800;font-size:13px;margin-bottom:2px;', ping.title));
 
-    let cluster = ping.suggest === 'leads' ? detectCluster(readCourse()) : null;
-    let manualTag = '';
+    let lastHtml = '';
 
-    // --- Кластер (только для 'leads') ---
+    // --- Кластер (только для 'leadcontent') ---
     let clusterSel = null;
-    if (ping.suggest === 'leads') {
+    if (ping.suggest === 'leadcontent') {
+      const cluster = detectCluster(readCourse());
+      const crs = readCourse();
       body.appendChild(elt('div', fieldLabel, 'Кластер' + (cluster ? '' : ' — курс не распознан, выбери')));
       clusterSel = elt('select', inputCss);
       clusterSel.appendChild(new Option('— выбери кластер —', ''));
       CLUSTER_NAMES.forEach(function (n) { clusterSel.appendChild(new Option(n, n)); });
       clusterSel.value = cluster || '';
-      const crs = readCourse();
-      if (crs) body.appendChild(elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:1px;', 'курс: ' + crs));
       body.appendChild(clusterSel);
+      if (crs) body.appendChild(elt('div', 'font-size:10.5px;color:#9CA3AF;font-weight:600;margin-top:2px;', 'курс: ' + crs));
+    }
+
+    // --- МОП (только для 'paymanual') ---
+    let mopInput = null;
+    if (ping.suggest === 'paymanual') {
+      body.appendChild(elt('div', fieldLabel, 'МОП (имя)'));
+      mopInput = elt('input', inputCss);
+      mopInput.placeholder = 'кто вёл сделку';
+      body.appendChild(mopInput);
     }
 
     // --- Кому (выбор тега) ---
     let tagSel = null, manualInput = null;
-    if (ping.suggest !== 'none') {
-      body.appendChild(elt('div', fieldLabel, 'Кому'));
-      tagSel = elt('select', inputCss);
-      manualInput = elt('input', inputCss + 'margin-top:5px;display:none;');
-      manualInput.placeholder = '@тег вручную';
-      body.appendChild(tagSel);
+    const needTag = ping.suggest !== 'none';
+    if (needTag) {
+      body.appendChild(elt('div', fieldLabel, ping.suggest === 'paymanual' ? 'Тег (впиши сам)' : 'Кому'));
+      manualInput = elt('input', inputCss);
+      manualInput.placeholder = '@тег';
+      if (ping.suggest !== 'paymanual') {
+        tagSel = elt('select', inputCss);
+        body.appendChild(tagSel);
+        manualInput.style.cssText = inputCss + 'margin-top:5px;display:none;';
+      }
       body.appendChild(manualInput);
     }
 
     // --- Ссылка ---
-    body.appendChild(elt('div', fieldLabel, ping.linkKind === 'amo' ? 'Ссылка на сделку' : 'Ссылка на карточку Notion'));
+    const lm = LINK_META[ping.linkKind] || LINK_META.notion;
+    body.appendChild(elt('div', fieldLabel, lm.label));
     const linkInput = elt('input', inputCss);
-    linkInput.placeholder = ping.linkKind === 'amo' ? 'https://eduson.amocrm.ru/leads/detail/…' : 'ссылка на карточку Notion';
-    if (ping.linkKind === 'amo') linkInput.value = amoLink() || '';
+    linkInput.placeholder = lm.ph;
+    linkInput.value = autoLink(ping.linkKind);
     body.appendChild(linkInput);
 
     // --- Превью ---
@@ -408,16 +479,20 @@
     body.appendChild(ta);
 
     function chosenTag() {
-      if (!tagSel) return '';
-      if (tagSel.value === '__manual__') return manualInput.value.trim();
-      return tagSel.value;
+      if (!needTag) return '';
+      if (tagSel && tagSel.value !== '__manual__') return tagSel.value;
+      return manualInput.value.trim();
     }
-    function recompute() { ta.value = pingFill(ping, chosenTag(), linkInput.value.trim()); }
+    function recompute() {
+      const r = pingFill(ping, chosenTag(), linkInput.value.trim(), mopInput ? mopInput.value.trim() : '');
+      ta.value = r.plain;
+      lastHtml = r.html;
+    }
     function fillTagSel() {
       if (!tagSel) return;
       tagSel.innerHTML = '';
       const opts = suggestTags(ping, clusterSel ? clusterSel.value : null);
-      if (!opts.length) tagSel.appendChild(new Option(ping.suggest === 'leads' ? '— сначала выбери кластер —' : '—', ''));
+      if (!opts.length) tagSel.appendChild(new Option(ping.suggest === 'leadcontent' ? '— сначала выбери кластер —' : '—', ''));
       opts.forEach(function (o) { tagSel.appendChild(new Option(o.label + '  ·  ' + o.tag, o.tag)); });
       tagSel.appendChild(new Option('— вписать тег вручную —', '__manual__'));
       tagSel.value = opts.length ? opts[0].tag : '';
@@ -432,10 +507,15 @@
       recompute();
     };
     if (manualInput) manualInput.oninput = recompute;
+    if (mopInput) mopInput.oninput = recompute;
     linkInput.oninput = recompute;
+    ta.oninput = function () { lastHtml = ''; };
 
     const copyB = elt('div', 'margin-top:9px;text-align:center;background:' + ACC + ';color:#fff;font-weight:800;font-size:12px;padding:9px 0;border-radius:12px;cursor:pointer;', '📋 Копировать');
-    copyB.onclick = function () { copyText(ta.value); toast('Скопировано — вставь в нужный чат Телеграм'); };
+    copyB.onclick = function () {
+      if (lastHtml) copyRich(ta.value, lastHtml); else copyText(ta.value);
+      toast('Скопировано — вставь в нужный чат Телеграм');
+    };
     body.appendChild(copyB);
   }
 
@@ -451,16 +531,17 @@
     const teams = Object.keys(TEAMS).map(function (lead) {
       const t = TEAMS[lead];
       return {
-        head: { name: lead + ' — руководитель', tag: t.tag, note: t.dept },
-        rows: t.mops.map(function (m) { return { name: m, tag: t.tag, note: 'МОП · команда ' + lead }; })
+        head: { name: lead, note: 'руководитель' + (t.dept ? ' · ' + t.dept : ''), tag: t.tag },
+        rows: t.mops.map(function (m) { return { name: m, tag: t.tag, note: '' }; })
       };
     });
     return [
       { title: 'Продакты по кластерам', rows: prod },
       { title: 'Лиды контента', rows: leads },
-      { title: 'Проверяющие ДЗ', rows: [{ name: DZ_DEFAULT.name + ' — по умолчанию', tag: DZ_DEFAULT.tag, note: '' }]
+      { title: 'Проверяющие ДЗ', rows: [{ name: DZ_DEFAULT.name, tag: DZ_DEFAULT.tag, note: 'по умолчанию' }]
         .concat(DZ_REVIEWERS.map(function (d) { return { name: d.name, tag: d.tag, note: '' }; })) },
       { title: 'Эскалации', rows: ESCALATIONS.map(function (e) { return { name: e.name, tag: e.tag, note: e.note }; }) },
+      { title: 'Директора департаментов', rows: DIRECTORS.map(function (d) { return { name: d.name, tag: d.tag, note: d.note }; }) },
       { title: 'Команды продаж (МОП)', teams: teams }
     ];
   }
@@ -481,12 +562,20 @@
     body.appendChild(host);
 
     function tagRow(row, indent) {
-      const it = elt('div', 'display:flex;justify-content:space-between;gap:8px;align-items:baseline;padding:5px 6px 5px ' + (indent || 6) + 'px;border-radius:8px;cursor:pointer;');
-      it.appendChild(elt('div', 'font-size:12px;font-weight:700;color:#111827;flex:1;', row.name + (row.note ? '  ·  ' + row.note : '')));
-      it.appendChild(elt('div', 'font:500 11.5px IBM Plex Mono,' + FONT + ';color:' + ACC_DEEP + ';white-space:nowrap;', row.tag));
+      // Две строки: имя (+ примечание) сверху, тег снизу — ничего не сливается и не едет.
+      const it = elt('div', 'padding:6px 8px 6px ' + (indent || 8) + 'px;border-radius:8px;cursor:pointer;');
+      it.appendChild(elt('div', 'font-size:12.5px;font-weight:700;color:#111827;line-height:1.35;', row.name));
+      const meta = elt('div', 'display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:1px;align-items:baseline;');
+      if (row.tag) meta.appendChild(elt('span', 'font:500 11.5px IBM Plex Mono,' + FONT + ';color:' + ACC_DEEP + ';', row.tag));
+      else meta.appendChild(elt('span', 'font-size:11px;color:#9CA3AF;font-weight:600;', 'тега нет'));
+      if (row.note) meta.appendChild(elt('span', 'font-size:11px;color:#9CA3AF;font-weight:600;', row.note));
+      it.appendChild(meta);
       it.onmouseenter = function () { it.style.background = '#F0F9FF'; };
       it.onmouseleave = function () { it.style.background = 'transparent'; };
-      it.onclick = function () { copyText(row.tag); toast('Скопирован тег ' + row.tag); };
+      it.onclick = function () {
+        if (!row.tag) { toast('У ' + row.name + ' тега нет'); return; }
+        copyText(row.tag); toast('Скопирован тег ' + row.tag);
+      };
       return it;
     }
     function collapsible(titleText, count, openByDefault) {
